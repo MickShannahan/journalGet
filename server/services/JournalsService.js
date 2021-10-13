@@ -1,12 +1,21 @@
-import { logger } from '../utils/Logger'
 
 const chromeOptions = {
-  headless: true,
+  headless: false,
   defaultViewport: null,
   args: [
     '--no-sandbox'
   ]
 }
+
+const blockedDomains = [
+  'googlesyndication.com',
+  'adservice.google.com',
+  'simple-jekyll-search.min.js',
+  'bcw.blob',
+  'search',
+  '.jpeg',
+  '.png'
+]
 
 function url(name, subject = 'reflections', week, day) {
   return `https://${name}.github.io/fs-journal/${subject}/week${week}/${day}`
@@ -27,11 +36,21 @@ class JournalsService {
       repo: {
         url: null,
         imgUrl: null,
-        valid: null
+        valid: false
       }
 
     }
+
     const page = await browser.newPage()
+    await page.setRequestInterception(true)
+    page.on('request', request => {
+      const url = request.url()
+      if (blockedDomains.some(domain => url.includes(domain))) {
+        request.abort()
+      } else {
+        request.continue()
+      }
+    })
     const reflectionLink = url(name, 'reflections', week, day)
     reflection.questions.url = reflectionLink
     await page.goto(reflectionLink, { waitUntil: 'domcontentloaded' })
@@ -40,13 +59,13 @@ class JournalsService {
     })
     // SECTION getting reflections pic
     await page.waitForTimeout(200)
-    await page.screenshot({ path: './screenshots/' + name + 'W' + week + 'D' + day + '.jpg', type: 'jpeg' })
+    await page.screenshot(
+      // { path: './screenshots/' + name + 'W' + week + 'D' + day + '.jpg', type: 'jpeg' }
+    )
 
     // SECTION getting repo pic
     const linkElm = await page.$('h2+p strong a')
-    logger.log(linkElm)
     if (linkElm == null) {
-      browser.close()
       return reflection
     }
     const link = await (await linkElm.getProperty('href')).jsonValue()
@@ -59,10 +78,10 @@ class JournalsService {
     })
     await page.goto(link, { waitUntil: 'domcontentloaded' })
     await page.waitForTimeout(2000)
-    if (linkResponse.status() !== 200) {
-      reflection.repo.valid = false
+    if (linkResponse.status() === 200) {
+      reflection.repo.valid = true
     }
-    browser.close()
+    await page.close()
     return reflection
   }
 }
