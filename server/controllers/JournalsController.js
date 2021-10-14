@@ -63,6 +63,7 @@ export class JournalsController extends BaseController {
     super('api/journals')
     this.router
       .get('/worker/student/:name/week/:week', this.workerGetStudentWeek)
+      .post('/worker/class/week/:week', this.workerGetClassWeek)
       .get('/student/:name/week/:week/day/:day', this.getStudentDay)
       .get('/student/:name/week/:week', this.getStudentWeek)
       .post('/class/week/:week', this.getClassWeek)
@@ -140,14 +141,34 @@ export class JournalsController extends BaseController {
       next(error)
     }
   }
+
+  async workerGetClassWeek(req, res, next) {
+    try {
+      const nameList = req.body.list
+      nameList.forEach(n => {
+        for (let i = 1; i <= 5; i++) {
+          jobQ.push({
+            name: n,
+            week: req.params.week,
+            day: '0' + i
+          })
+        }
+      })
+      const data = await startJobs(jobQ)
+      return res.send(data)
+    } catch (error) {
+      logger.log(error)
+    }
+  }
 }
 
 function workerMessaged(message) {
-  logger.log('[WORKER_MESSAGE]', message)
   switch (message.status) {
     case 'job done':
-      logger.log(`${message.cat} - ${message.id} finished a job`)
-      logger.log(message)
+      continueWork(message.id)
+      break
+    default:
+      logger.error(`${message.workerName} - ${message.status}`)
   }
 }
 function workerError(error) {
@@ -160,18 +181,28 @@ const workerLimit = 4
 
 // Starts workers for job Q
 function startJobs(jobs) {
+  const reflections = []
   let working = true
   return new Promise(async(resolve, reject) => {
     while (working) {
       if (workers.length < workerLimit && jobs.length) {
         const worker = new Worker('./server/services/PuppetWorker.js')
         workers.push(worker)
-        worker.on('message', workerMessaged)
+        worker.on('message', (message) => {
+          switch (message.status) {
+            case 'job done':
+              reflections.push(message.data)
+              continueWork(message.id)
+              break
+            default:
+              logger.error(`${message.workerName} - ${message.status}`)
+          }
+        })
         worker.on('error', workerError)
         worker.postMessage({ do: 'reflection', job: jobs.shift() })
         worker.on('exit', () => {
-          logger.log('[Worker Exited]')
-          workers.splice(workers.findIndex(w => w === worker), 1)
+          logger.warn('[Worker Exited]')
+          workers.splice(workers.findIndex(w => w.threadId === worker.threadId), 1)
         })
       }
       if (workers.length === 0) {
@@ -179,8 +210,19 @@ function startJobs(jobs) {
       }
       await doWork()
     }
-    resolve({ jobs })
+    resolve({ reflections })
   })
+}
+
+function continueWork(workerId) {
+  const worker = workers.find(w => w.threadId === workerId)
+  logger.log('[JOBS LEFT]', jobQ)
+  if (jobQ.length > 0) {
+    const nextJob = jobQ.shift()
+    worker.postMessage({ do: 'reflection', job: nextJob })
+  } else {
+    worker.postMessage({ do: 'All in a hard days work', job: 'all done' })
+  }
 }
 
 function doWork() {

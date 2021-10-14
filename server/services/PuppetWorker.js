@@ -1,5 +1,5 @@
 const process = require('process')
-const { isMainThread, parentPort } = require('worker_threads')
+const { isMainThread, parentPort, threadId } = require('worker_threads')
 const puppeteer = require('puppeteer')
 const Cat = require('../utils/Gennerate')
 
@@ -57,12 +57,13 @@ function url(name, subject = 'reflections', week, day) {
 }
 
 // WEB worker stuff
-const id = process.geteuid ? process.getuid() : Cat.getName()
-const cat = Cat.getCat()
+const id = threadId
+const workerName = process.geteuid ? process.getuid() : Cat.getName()
+const worker = Cat.getCat()
 
 if (!isMainThread) {
   init()
-  console.log(`${cat} - ${id} Started`)
+  console.log(`${worker} - ${workerName} Started on thread ${id}`)
 } else {
   console.log('this is the main thread???')
 }
@@ -74,83 +75,86 @@ async function init() {
   browser = await puppeteer.launch(chromeOptions)
 
   parentPort.on('message', async(action) => {
-    console.log(`${cat} - ${id} got job ${JSON.stringify(action.job)}`)
+    console.log(`${worker} - ${workerName} got job ${JSON.stringify(action)}`)
     switch (action.do) {
       case 'reflection':
         await getReflection(action.job)
         break
       case 'quiz':
-        parentPort.postMessage({ doing: 'not yet implemented', id })
+        parentPort.postMessage({ status: 'not yet implemented', workerName })
         break
       default:
         await browser.close()
-        parentPort.postMessage({ doing: 'Exiting', id })
-        process.exit()
+        parentPort.postMessage({ status: 'Exiting', workerName })
+        parentPort.close()
     }
   })
 
   // SECTION get Reflection
 
   async function getReflection({ name, week, day }) {
-    const reflection = {
-      name,
-      week,
-      day,
-      createdAt: new Date(Date.now()).toISOString(),
-      questions: {
-        url: null,
-        imgUrl: null,
-        valid: null
-      },
-      repo: {
-        url: null,
-        imgUrl: null,
-        valid: false
-      }
+    try {
+      const reflection = {
+        name,
+        week,
+        day,
+        createdAt: new Date(Date.now()).toISOString(),
+        questions: {
+          url: null,
+          imgUrl: null,
+          valid: null
+        },
+        repo: {
+          url: null,
+          imgUrl: null,
+          valid: false
+        }
 
-    }
-
-    const page = await browser.newPage()
-    await page.setRequestInterception(true)
-    page.on('request', request => {
-      const url = request.url()
-      if (blockedDomains.some(domain => url.includes(domain))) {
-        request.abort()
-      } else {
-        request.continue()
       }
-    })
-    const reflectionLink = url(name, 'reflections', week, day)
-    reflection.questions.url = reflectionLink
-    await page.goto(reflectionLink, { waitUntil: 'domcontentloaded' })
-    await page.evaluate(() => { // page Scroll
-      return Promise.resolve(window.scrollTo(0, document.body.scrollHeight))
-    })
-    // SECTION getting reflections pic
-    await page.waitForTimeout(200)
-    await page.screenshot(
-    // { path: './screenshots/' + name + 'W' + week + 'D' + day + '.jpg', type: 'jpeg' }
-    )
+      const page = await browser.newPage()
+      await page.setRequestInterception(true)
+      page.on('request', request => {
+        const url = request.url()
+        if (blockedDomains.some(domain => url.includes(domain))) {
+          request.abort()
+        } else {
+          request.continue()
+        }
+      })
+      const reflectionLink = url(name, 'reflections', week, day)
+      reflection.questions.url = reflectionLink
+      await page.goto(reflectionLink, { waitUntil: 'domcontentloaded' })
+      await page.evaluate(() => { // page Scroll
+        return Promise.resolve(window.scrollTo(0, document.body.scrollHeight))
+      })
+      // SECTION getting reflections pic
+      await page.waitForTimeout(200)
+      await page.screenshot(
+        { path: './screenshots/' + name + 'W' + week + 'D' + day + '.jpg', type: 'jpeg' }
+      )
 
-    // SECTION getting repo pic
-    const linkElm = await page.$('h2+p strong a')
-    if (linkElm == null) {
-      return reflection
-    }
-    const link = await (await linkElm.getProperty('href')).jsonValue()
-    reflection.repo.url = link
-    let linkResponse = {}
-    await page.on('response', async response => {
-      if (response.url() === link) {
-        linkResponse = response
+      // SECTION getting repo pic
+      const linkElm = await page.$('h2+p strong a')
+      if (linkElm !== null) {
+        const link = await (await linkElm.getProperty('href')).jsonValue()
+        reflection.repo.url = link
+        let linkResponse = {}
+        await page.on('response', async response => {
+          if (response.url() === link) {
+            linkResponse = response
+          }
+        })
+        await page.goto(link, { waitUntil: 'domcontentloaded' })
+        await page.waitForTimeout(2000)
+        if (linkResponse.status() === 200) {
+          reflection.repo.valid = true
+        }
       }
-    })
-    await page.goto(link, { waitUntil: 'domcontentloaded' })
-    await page.waitForTimeout(2000)
-    if (linkResponse.status() === 200) {
-      reflection.repo.valid = true
+      await page.close()
+      parentPort.postMessage({ status: 'job done', data: reflection, workerName, id })
+    } catch (error) {
+      console.error(error)
+      parentPort.postMessage({ status: 'job Failed', error, workerName, id })
     }
-    await page.close()
-    parentPort.postMessage({ status: 'job done', data: reflection, cat, id })
   }
 }
