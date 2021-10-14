@@ -108,8 +108,8 @@ async function init() {
           url: null,
           imgUrl: null,
           valid: false
-        }
-
+        },
+        reportedBy: worker + ' ' + workerName
       }
       const page = await browser.newPage()
       await page.setRequestInterception(true)
