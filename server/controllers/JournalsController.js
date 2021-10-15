@@ -126,11 +126,13 @@ export class JournalsController extends BaseController {
       // Create jobs and push to que
       for (let i = 1; i <= 5; i++) {
         jobQ.push({
+          type: 'reflections',
           name: req.params.name,
           week: req.params.week,
           day: '0' + i
         })
       }
+      jobQ.push({ ...req.params, type: 'quizzes' })
 
       const data = await startJobs(jobQ)
 
@@ -148,11 +150,13 @@ export class JournalsController extends BaseController {
       nameList.forEach(n => {
         for (let i = 1; i <= 5; i++) {
           jobQ.push({
+            type: 'reflections',
             name: n,
             week: req.params.week,
             day: '0' + i
           })
         }
+        jobQ.push({ name: n, week: req.params.week, type: 'quizzes' })
       })
       const data = await startJobs(jobQ)
       return res.send(data)
@@ -181,7 +185,7 @@ const workerLimit = 4
 
 // Starts workers for job Q
 function startJobs(jobs) {
-  const reflections = []
+  const collection = []
   let working = true
   return new Promise(async(resolve, reject) => {
     while (working) {
@@ -191,7 +195,9 @@ function startJobs(jobs) {
         worker.on('message', (message) => {
           switch (message.status) {
             case 'job done':
-              reflections.push(message.data)
+              collection.push(message.data)
+            // eslint-disable-next-line no-fallthrough
+            case 'ready':
               continueWork(message.id)
               break
             default:
@@ -199,10 +205,9 @@ function startJobs(jobs) {
           }
         })
         worker.on('error', workerError)
-        worker.postMessage({ do: 'reflection', job: jobs.shift() })
         worker.on('exit', () => {
-          logger.warn('[Worker Exited]')
           workers.splice(workers.findIndex(w => w.threadId === worker.threadId), 1)
+          logger.warn('[Worker Exited] remaining work force ', workers.length)
         })
       }
       if (workers.length === 0) {
@@ -210,16 +215,16 @@ function startJobs(jobs) {
       }
       await doWork()
     }
-    resolve({ reflections })
+    resolve(collection)
   })
 }
 
 function continueWork(workerId) {
   const worker = workers.find(w => w.threadId === workerId)
-  logger.log('[JOBS LEFT]', jobQ)
+  logger.log('[JOBS LEFT]', jobQ.length)
   if (jobQ.length > 0) {
     const nextJob = jobQ.shift()
-    worker.postMessage({ do: 'reflection', job: nextJob })
+    worker.postMessage({ do: nextJob.type, job: nextJob })
   } else {
     worker.postMessage({ do: 'All in a hard days work', job: 'all done' })
   }
