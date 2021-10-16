@@ -46,18 +46,6 @@ const chromeOptions = {
   ]
 }
 
-const blockedDomains = [
-  'googlesyndication.com',
-  'adservice.google.com',
-  'bcw.blob',
-  '.jpeg',
-  '.png'
-]
-
-function url(name, subject = 'reflections', week, day) {
-  return `https://${name}.github.io/fs-journal/${subject}/week${week}/${day}`
-}
-
 export class JournalsController extends BaseController {
   constructor() {
     super('api/journals')

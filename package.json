@@ -13,6 +13,7 @@
   "author": "Codeworks",
   "license": "ISC",
   "dependencies": {
+    "@azure/storage-blob": "^12.8.0",
     "@bcwdev/auth0provider": "^1.0.7",
     "catid": "^1.0.1",
     "cors": "^2.8.5",

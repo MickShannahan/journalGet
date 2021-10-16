@@ -1,6 +1,7 @@
 const { isMainThread, parentPort, threadId } = require('worker_threads')
 const puppeteer = require('puppeteer')
 const Cat = require('catid')
+const blobService = require('./BlobService')
 
 const chromeOptions = {
   headless: true,
@@ -59,6 +60,7 @@ function url(name, type, week, day) {
 const id = threadId
 const workerName = Cat.getName(false)
 const worker = Cat.getCat()
+const container = blobService.getContainerClient('screenshots')
 
 // start worker
 if (!isMainThread) {
@@ -87,6 +89,7 @@ async function init() {
         await getQuiz(action.job)
         break
       default:
+        // TODO LOGIC FOR UPLOAD QUEUE (don't close until all AZURE uploads are done and all jobs from parent are done)
         await browser.close()
         parentPort.postMessage({ status: 'Exiting', workerName })
         parentPort.close()
@@ -102,7 +105,6 @@ async function init() {
         name,
         week,
         day,
-        createdAt: new Date(Date.now()).toISOString(),
         questions: {
           url: null,
           imgUrl: null,
@@ -113,6 +115,7 @@ async function init() {
           imgUrl: null,
           valid: false
         },
+        createdAt: new Date(Date.now()).toISOString(),
         reportedBy: worker + ' ' + workerName
       }
       // open page
@@ -137,9 +140,9 @@ async function init() {
       })
       // SECTION getting reflections pic
       await page.waitForTimeout(200)
-      await page.screenshot(
-        { path: './screenshots/' + name + 'W' + week + 'D' + (day || type) + '.jpg', type: 'jpeg', fullPage: true, quality: 50 }
-      )
+      const reflectionImage = await page.screenshot({ type: 'jpeg', fullPage: true, quality: 50 })
+      // Save image to Azure
+      reflection.questions.imgUrl = await saveScreenshot(name, reflectionImage, '/W' + week + 'D' + day + '.jpg')
 
       // SECTION getting repo pic
       const linkElm = await page.$('h2+p strong a')
@@ -156,9 +159,12 @@ async function init() {
         })
         // nav to repo link
         await page.goto(link, { waitUntil: 'domcontentloaded' })
-        await page.waitForTimeout(500)
+        await page.waitForTimeout(200)
         // check if repo link was good or not
         if (linkResponse.status() === 200) {
+          const repoImage = await page.screenshot({ type: 'jpeg', fullPage: true, quality: 50 })
+          // Save image to Azure
+          reflection.repo.imgUrl = await saveScreenshot(name, repoImage, '/W' + week + 'D' + day + 'repo' + '.jpg')
           reflection.repo.valid = true
         }
       }
@@ -177,6 +183,8 @@ async function init() {
         type: 'quiz',
         name,
         week,
+        url: null,
+        imgUrl: null,
         questions: {},
         createdAt: new Date(Date.now()).toISOString(),
         reportedBy: worker + ' ' + workerName
@@ -197,6 +205,12 @@ async function init() {
       const quizLink = url(name, type, week)
       quiz.url = quizLink
       await page.goto(quizLink, { waitUntil: 'domcontentloaded' })
+      await page.waitForTimeout(200)
+
+      // Take screenshot
+      const quizImage = await page.screenshot({ type: 'jpeg', fullPage: true, quality: 50 })
+      // Save image to Azure
+      quiz.imgUrl = await saveScreenshot(name, quizImage, '/W' + week + 'quiz' + '.jpg')
       // grabs question text
       const questions = await page.$$eval('article p', (elms) => elms.map(e => e.textContent.trim()))
       // grabs answers
@@ -211,6 +225,20 @@ async function init() {
     } catch (error) {
       console.error(workerName, error)
       parentPort.postMessage({ status: 'job Failed', error, workerName, id })
+    }
+  }
+
+  async function saveScreenshot(gitName, image, path = '') {
+    try {
+      const blockBlob = container.getBlockBlobClient(gitName + path)
+      await blockBlob.uploadData(image, {
+        metadata: {
+          takenBy: workerName
+        }
+      })
+      return blockBlob.url
+    } catch (error) {
+      throw new Error(error)
     }
   }
 }
