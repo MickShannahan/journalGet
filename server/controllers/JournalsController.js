@@ -169,7 +169,7 @@ function workerError(error) {
 
 const jobQ = []
 const workers = []
-const workerLimit = process.env.NODE_ENV === 'dev' ? 4 : 2
+const workerLimit = process.env.NODE_ENV === 'dev' ? 4 : 9
 
 // Starts workers for job Q
 function startJobs(jobs) {
