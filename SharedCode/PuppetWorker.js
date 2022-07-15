@@ -1,7 +1,7 @@
 const { isMainThread, parentPort, threadId } = require('worker_threads')
 const puppeteer = require('puppeteer')
 const Cat = require('catid')
-const blobService = require('./BlobService')
+// const blobService = require('./BlobService')
 
 const chromeOptions = {
   headless: true,
@@ -60,7 +60,7 @@ function url(name, type, week, day) {
 const id = threadId
 const workerName = Cat.getName(false)
 const worker = Cat.getCat()
-const container = blobService.getContainerClient('screenshots')
+// const container = blobService.getContainerClient('screenshots')
 
 // start worker
 if (!isMainThread) {
@@ -210,7 +210,9 @@ async function init() {
       // Take screenshot
       const quizImage = await page.screenshot({ type: 'jpeg', fullPage: true, quality: 50 })
       // Save image to Azure
-      quiz.imgUrl = await saveScreenshot(name, quizImage, '/W' + week + 'quiz' + '.jpg')
+      // TODO rig up Azure storage
+      // quiz.imgUrl = await saveScreenshot(name, quizImage, '/W' + week + 'quiz' + '.jpg')
+      console.log('[save screenshot')
       // grabs question text
       const questions = await page.$$eval('article p', (elms) => elms.map(e => e.textContent.trim()))
       // grabs answers
@@ -229,16 +231,17 @@ async function init() {
   }
 
   async function saveScreenshot(gitName, image, path = '') {
-    try {
-      const blockBlob = container.getBlockBlobClient(gitName + path)
-      await blockBlob.uploadData(image, {
-        metadata: {
-          takenBy: workerName
-        }
-      })
-      return blockBlob.url
-    } catch (error) {
-      throw new Error(error)
-    }
+    console.warn('[SCREENSHOT SAVED]')
+    // try {
+    //   const blockBlob = container.getBlockBlobClient(gitName + path)
+    //   await blockBlob.uploadData(image, {
+    //     metadata: {
+    //       takenBy: workerName
+    //     }
+    //   })
+    //   return blockBlob.url
+    // } catch (error) {
+    //   throw new Error(error)
+    // }
   }
 }

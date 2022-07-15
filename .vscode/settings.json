@@ -14,12 +14,18 @@
     "titleBar.activeForeground": "#15202b",
     "titleBar.inactiveBackground": "#40b5a499",
     "titleBar.inactiveForeground": "#15202b99",
-    "editorGroup.border": "#61c7b8",
-    "panel.border": "#61c7b8",
     "sash.hoverBorder": "#61c7b8",
-    "sideBar.border": "#61c7b8",
     "statusBarItem.remoteBackground": "#40b5a4",
-    "statusBarItem.remoteForeground": "#15202b"
+    "statusBarItem.remoteForeground": "#15202b",
+    "statusBar.debuggingBackground": "#b54051",
+    "statusBar.debuggingForeground": "#e7e7e7"
   },
-  "peacock.color": "#40b5a4"
+  "peacock.color": "#40b5a4",
+  "azureFunctions.deploySubpath": ".",
+  // "azureFunctions.postDeployTask": "npm install (functions)",
+  "azureFunctions.projectLanguage": "JavaScript",
+  "azureFunctions.projectRuntime": "~4",
+  "debug.internalConsoleOptions": "neverOpen",
+  // "azureFunctions.preDeployTask": "npm prune (functions)",
+  "azureFunctions.scmDoBuildDuringDeployment": true
 }

@@ -12,6 +12,13 @@
                 "<node_internals>/**"
             ],
             "program": "${workspaceFolder}/index.js"
+        },
+        {
+            "name": "Start Cloud",
+            "type": "node",
+            "request": "attach",
+            "port": 9229,
+            "preLaunchTask": "func: host start"
         }
     ]
 }
