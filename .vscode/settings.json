@@ -28,5 +28,6 @@
   "debug.internalConsoleOptions": "neverOpen",
   // "azureFunctions.preDeployTask": "npm prune (functions)",
   "azureFunctions.scmDoBuildDuringDeployment": true,
+  // this was very important for some reason
   "enableOryxBuild": true
 }

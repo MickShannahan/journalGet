@@ -140,9 +140,10 @@ async function init() {
       })
       // SECTION getting reflections pic
       await page.waitForTimeout(200)
-      const reflectionImage = await page.screenshot({ type: 'jpeg', fullPage: true, quality: 50 })
+      // const reflectionImage = await page.screenshot({ type: 'jpeg', fullPage: true, quality: 50 })
+      console.log('screen shot')
       // Save image to Azure
-      reflection.questions.imgUrl = await saveScreenshot(name, reflectionImage, '/W' + week + 'D' + day + '.jpg')
+      // reflection.questions.imgUrl = await saveScreenshot(name, reflectionImage, '/W' + week + 'D' + day + '.jpg')
 
       // SECTION getting repo pic
       const linkElm = await page.$('h2+p strong a')
@@ -208,11 +209,11 @@ async function init() {
       await page.waitForTimeout(200)
 
       // Take screenshot
-      const quizImage = await page.screenshot({ type: 'jpeg', fullPage: true, quality: 50 })
+      // const quizImage = await page.screenshot({ type: 'jpeg', fullPage: true, quality: 50 })
       // Save image to Azure
       // TODO rig up Azure storage
+      console.log('screen shot')
       // quiz.imgUrl = await saveScreenshot(name, quizImage, '/W' + week + 'quiz' + '.jpg')
-      console.log('[save screenshot')
       // grabs question text
       const questions = await page.$$eval('article p', (elms) => elms.map(e => e.textContent.trim()))
       // grabs answers

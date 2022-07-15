@@ -3,7 +3,7 @@ import { Worker } from 'worker_threads'
 const debugging = true
 const jobQ = []
 const workers = []
-const workerLimit = 3
+const workerLimit = 1
 
 export async function workerGetClassWeek(req, context) {
   try {
@@ -28,9 +28,7 @@ export async function workerGetClassWeek(req, context) {
 
 function startJobs(jobs, context) {
   context.log.error('[Starting Jobs]', jobs.length)
-
   const collection = []
-
   let working = true
   return new Promise(async(resolve, reject) => {
     try {
