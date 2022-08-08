@@ -49,7 +49,10 @@ function startJobs(jobs, context) {
             }
           })
           // FIXME end worker on error
-          worker.on('error', workerError)
+          worker.on('error', err => {
+            workerError(err)
+            worker.postMessage({do:'nothing', job: 'quitting time'})
+          })
           worker.on('exit', () => {
             workers.splice(workers.findIndex(w => w.threadId === worker.threadId), 1)
             console.warn('[Worker Exited] remaining work force ', workers.length)

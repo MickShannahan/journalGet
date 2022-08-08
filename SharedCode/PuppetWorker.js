@@ -163,6 +163,11 @@ async function init() {
         await page.waitForTimeout(200)
         // check if repo link was good or not
         if (linkResponse.status() === 200) {
+          // hide readme
+          // let readme = await page.$('#readme')
+          // if(readme){
+          //   readme.style.display = 'none'
+          // }
           const repoImage = await page.screenshot({ type: 'jpeg', fullPage: true, quality: 50 })
           // Save image to Azure
           reflection.repo.imgUrl = await saveScreenshot(name, repoImage, '/W' + week + 'D' + day + 'repo' + '.jpg')
