@@ -6,9 +6,17 @@ export default async function(context, req) {
   // TODO get errors back
   context.log('Cat-worker started ----------------', req.body)
   try {
-    const response = await workerGetClassWeek(req, context)
-    console.warn('jobs done', response)
+    const data = await workerGetClassWeek(req, context)
+    console.warn('jobs done', data)
     // context.res = { status: 200, body: response }
+    const response = {}
+    data.forEach(d => {
+      if(response[d.name]){
+        response[d.name].push(d)
+      } else {
+        response[d.name] = [d]
+      }
+    })
     return {
       status: 200,
       body: response,
@@ -22,19 +30,4 @@ export default async function(context, req) {
       body: error.message
     }
   }
-  // NOTE this worked
-  // const url = req.query.url || 'https://google.com/'
-  // const browser = await puppeteer.launch()
-  // const page = await browser.newPage()
-  // await page.goto(url)
-  // const screenshotBuffer =
-  //     await page.screenshot({ fullPage: true })
-  // await browser.close()
-
-  // return {
-  //   body: screenshotBuffer,
-  //   headers: {
-  //     'content-type': 'image/png'
-  //   }
-  // }
 }
