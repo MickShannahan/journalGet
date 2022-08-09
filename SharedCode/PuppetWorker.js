@@ -2,6 +2,7 @@ const { isMainThread, parentPort, threadId } = require('worker_threads')
 const puppeteer = require('puppeteer')
 const Cat = require('catid')
 const blobService = require('./BlobService')
+const process = require('process')
 
 const chromeOptions = {
   headless: true,
@@ -141,7 +142,6 @@ async function init() {
       // SECTION getting reflections pic
       await page.waitForTimeout(200)
       const reflectionImage = await page.screenshot({ type: 'jpeg', fullPage: true, quality: 50 })
-      console.log('screen shot')
       // Save image to Azure
       reflection.questions.imgUrl = await saveScreenshot(name, reflectionImage, '/W' + week + 'D' + day + '.jpg')
 
@@ -164,10 +164,10 @@ async function init() {
         // check if repo link was good or not
         if (linkResponse.status() === 200) {
           // hide readme
-          // let readme = await page.$('#readme')
-          // if(readme){
-          //   readme.style.display = 'none'
-          // }
+          const readme = await page.$('#readme')
+          if (readme) {
+            await readme.evaluate(elm => elm.style.display = 'none')
+          }
           const repoImage = await page.screenshot({ type: 'jpeg', fullPage: true, quality: 50 })
           // Save image to Azure
           reflection.repo.imgUrl = await saveScreenshot(name, repoImage, '/W' + week + 'D' + day + 'repo' + '.jpg')
@@ -179,7 +179,7 @@ async function init() {
       parentPort.postMessage({ status: 'job done', data: reflection, workerName, id })
     } catch (error) {
       console.error(error)
-      parentPort.postMessage({ status: 'job Failed', error, workerName, id })
+      parentPort.postMessage({ status: 'job failed', error, workerName, id, job: { name, type, week } })
     }
   }
 
@@ -232,21 +232,25 @@ async function init() {
       parentPort.postMessage({ status: 'job done', data: quiz, id })
     } catch (error) {
       console.error(workerName, error)
-      parentPort.postMessage({ status: 'job Failed', error, workerName, id })
+      parentPort.postMessage({ status: 'job failed', error, workerName, id, job: { name, type, week } })
     }
   }
 
   async function saveScreenshot(gitName, image, path = '') {
-    console.warn('[SCREENSHOT SAVED]')
     try {
-      const blockBlob = container.getBlockBlobClient(gitName + path)
+      console.warn('[SCREENSHOT SAVED]')
+      console.log('getting blob')
+      const blockBlob = await container.getBlockBlobClient(gitName + path)
+      console.log('uploading')
       await blockBlob.uploadData(image, {
         metadata: {
           takenBy: workerName
         }
       })
+      console.log('returning')
       return blockBlob.url
     } catch (error) {
+      console.error(error)
       throw new Error(error)
     }
   }

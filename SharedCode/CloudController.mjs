@@ -44,14 +44,21 @@ function startJobs(jobs, context) {
               case 'ready':
                 continueWork(message.id)
                 break
+              case 'job failed':
+                console.error(`${message.workerName} - failed`)
+                if (message.job) console.error('[Failed Job]', message.job)
+                if (message.error) console.error(message.error)
+                worker.postMessage({ do: 'nothing', job: 'quitting time' })
+                break
               default:
                 console.error(`${message.workerName} - ${message.status}`)
+                if (message.error) console.error(message.error)
             }
           })
           // FIXME end worker on error
           worker.on('error', err => {
             workerError(err)
-            worker.postMessage({do:'nothing', job: 'quitting time'})
+            worker.postMessage({ do: 'nothing', job: 'quitting time' })
           })
           worker.on('exit', () => {
             workers.splice(workers.findIndex(w => w.threadId === worker.threadId), 1)
